@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ai Code Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7ff 0%, #e8eeff 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .glow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glow {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            filter: blur(80px);
+        }
+
+        .glow-1 {
+            background: rgba(65, 105, 225, 0.15);
+            top: -200px;
+            left: -100px;
+            animation: float1 8s ease-in-out infinite;
+        }
+
+        .glow-2 {
+            background: rgba(54, 88, 199, 0.15);
+            bottom: -300px;
+            right: -200px;
+            animation: float2 10s ease-in-out infinite;
+        }
+
+        @keyframes float1 {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            50% {
+                transform: translate(50px, 50px) scale(1.1);
+            }
+        }
+
+        @keyframes float2 {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            50% {
+                transform: translate(-50px, -30px) scale(1.15);
+            }
+        }
+
+        .title-container,
+        .input-container,
+        .editors-container,
+        .settings-bar,
+        .footer {
+            position: relative;
+            z-index: 1;
+        }
+
+        .powered-by {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .title-container {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: 700;
+            color: #1a1a2e;
+            line-height: 1.2;
+        }
+
+        .highlight {
+            color: #4169E1;
+        }
+
+        .input-container {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .prompt-input {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+        }
+
+        .prompt-input:focus {
+            outline: none;
+            box-shadow: 0 4px 20px rgba(65, 105, 225, 0.15);
+            background: white;
+        }
+
+        .settings-bar {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1000;
+        }
+
+        .model-selector {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 1001;
+        }
+
+        .model-selector:hover {
+            background: #f8fafc;
+        }
+
+        .model-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+        }
+
+        .model-name {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .toggle-switch {
+            width: 40px;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .editors-container {
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .editor-box {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease;
+        }
+
+        .editor-box:hover {
+            transform: translateY(-2px);
+        }
+
+        .editor-header {
+            padding: 12px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .browser-dots {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .browser-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e2e8f0;
+        }
+
+        .search-bar {
+            height: 28px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .preview {
+            background: white;
+        }
+
+        #preview {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .submit-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            background: #4169E1;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(65, 105, 225, 0.3);
+        }
+
+        .submit-btn:hover {
+            background: #3658c7;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(65, 105, 225, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 36px;
+            }
+            
+            .editors-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .editor-content {
+            height: 500px;
+            background: #1e1e1e;
+        }
+
+        #codeEditor {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            border: none;
+            resize: none;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        #codeEditor:focus {
+            outline: none;
+        }
+
+        .editor-content.preview {
+            background: white;
+            height: 500px;
+        }
+
+        .browser-dots span:nth-child(1) { background: #ff5f57; }
+        .browser-dots span:nth-child(2) { background: #ffbd2e; }
+        .browser-dots span:nth-child(3) { background: #28c940; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 16px;
+            background-color: #d4d4d4;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+        }
+
+        .typing-text {
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            color: #d4d4d4;
+        }
+
+        .code-editor-content {
+            width: 100%;
+            height: 100%;
+            padding: 16px;
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            tab-size: 4;
+            -moz-tab-size: 4;
+            position: relative;
+        }
+
+        .html-tag { color: #569cd6; font-weight: 500; }
+        .html-attr { color: #9cdcfe; font-style: italic; }
+        .html-string { color: #ce9178; }
+        .css-property { color: #9cdcfe; font-style: italic; }
+        .css-value { color: #ce9178; }
+        .js-keyword { color: #c586c0; font-weight: 500; }
+        .js-string { color: #ce9178; }
+        .js-function { color: #dcdcaa; font-style: italic; }
+        .js-number { color: #b5cea8; }
+        .comment { color: #6a9955; font-style: italic; }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 4px;
+            background: #f1f5f9;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .refresh-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .code-actions {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .code-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #f3f4f5;
+            color: rgb(59, 32, 32);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            /* box-shadow: 0 2px 8px rgba(65, 105, 225, 0.2); */
+        }
+
+        .code-btn:hover {
+            background: #3658c7;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(65, 105, 225, 0.3);
+        }
+
+        .code-btn:active {
+            transform: translateY(0);
+        }
+
+        .code-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .code-btn.success {
+            background: #22c55e;
+        }
+
+        .model-selector {
+            position: relative;
+            cursor: pointer;
+            padding-right: 24px;
+        }
+
+        .model-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            margin-top: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.2s ease;
+            z-index: 1002;
+        }
+
+        .model-list.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .model-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .model-option:hover {
+            background: #f1f5f9;
+        }
+
+        .model-option.active {
+            background: #f1f5f9;
+        }
+
+        .model-option .model-dot {
+            opacity: 0.5;
+        }
+
+        .model-option.active .model-dot {
+            opacity: 1;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+
+        .submit-btn.loading {
+            animation: pulse 1.5s infinite;
+            pointer-events: none;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .footer-credit {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #3b3e41;
+            font-size: 14px;
+            padding: 10px 20px;
+            border-radius: 100px;
+            background: #ffffffb3;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(206, 180, 180, 0.1);
+        }
+
+        .footer-credit:hover {
+            transform: translateY(-2px);
+            background: rgba(154, 165, 183, 0.8);
+        }
+
+        .footer-credit svg {
+            width: 16px;
+            height: 16px;
+            stroke: #95989c;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+        }
+
+        .footer-credit:hover svg {
+            transform: scale(1.1);
+            opacity: 1;
+        }
+
+        .footer-divider {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: #4b5563;
+            margin: 0 8px;
+        }
+
+        .footer-link {
+            color: #3671ce;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .footer-link:hover {
+            color: #93c5fd;
+        }
+
+        .model-selector {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 1001;
+        }
+
+        .model-selector:hover {
+            background: #f8fafc;
+        }
+
+        .model-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            margin-top: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.2s ease;
+            z-index: 1002;
+        }
+
+        .model-list.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .model-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .model-option:hover {
+            background: #f1f5f9;
+        }
+
+        .model-option.active {
+            background: #f1f5f9;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+
+        .loading-animation {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #4169E1;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .loading-animation .dots {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .loading-animation .dot {
+            width: 12px;
+            height: 12px;
+            background: #4169E1;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .loading-animation .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-animation .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        @keyframes blink {
+            50% { border-color: transparent }
+        }
+
+        .typing-animation {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .typing-text {
+            color: #4169E1;
+            font-size: 20px;
+            border-right: 2px solid #4169E1;
+            white-space: nowrap;
+            overflow: hidden;
+            animation: 
+                typing 3.5s steps(40, end),
+                blink .75s step-end infinite;
+        }
+
+        .code-editor-content {
+            color: #e2e8f0;
+            background: #1a1a2e;
+            padding: 20px;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            height: 100%;
+            width: 100%;
+            resize: none;
+            border: none;
+            outline: none;
+        }
+
+        .preview-animation {
+            background: #1a1a2e;
+            color: #e2e8f0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+
+        .preview-text {
+            font-size: 24px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s forwards;
+        }
+
+        .preview-loader {
+            margin-top: 20px;
+            width: 200px;
+            height: 4px;
+            background: rgba(65, 105, 225, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .preview-loader::after {
+            content: '';
+            display: block;
+            width: 40%;
+            height: 100%;
+            background: #4169E1;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(250%); }
+        }
+
+        /* Syntax highlighting colors */
+        .code-editor-content .html-tag { color: #569cd6; }
+        .code-editor-content .html-attr { color: #9cdcfe; }
+        .code-editor-content .string { color: #ce9178; }
+        .code-editor-content .keyword { color: #c586c0; }
+        .code-editor-content .number { color: #b5cea8; }
+        .code-editor-content .comment { color: #6a9955; }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background-color: #d4d4d4;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+            position: relative;
+            top: 2px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .editor-content {
+            height: 500px;
+            background: #1e1e1e;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Typing animation */
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        .typing-text {
+            display: inline-block;
+            overflow: hidden;
+            border-right: 2px solid #d4d4d4;
+            white-space: nowrap;
+            margin: 0;
+            letter-spacing: 0.15em;
+            animation: 
+                typing 3.5s steps(40, end),
+                blink-caret 0.75s step-end infinite;
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #d4d4d4 }
+        }
+    </style>
+</head>
+<body>*
+    <div class="glow-container">
+        <div class="glow glow-1"></div>
+        <div class="glow glow-2"></div>
+    </div>
+    <div class="powered-by">
+        Powered by Llama 3.1 and Together AI
+    </div>
+
+    <div class="title-container">
+        <big>
+            <h1 class="title">
+                Turn your <span class="highlight">idea</span><br>
+                into an <span class="highlight">app</span>
+            </h1>
+        </big>
+    </div>
+
+    <div class="input-container">
+        <input type="text" 
+               class="prompt-input" 
+               placeholder="Eg,🔥 Create a Calculator app with html,css,js."
+               id="promptInput">
+    </div>
+
+    <div class="settings-bar">
+        <div class="model-selector" id="modelSelector">
+            <span class="model-dot"></span>
+            <span class="model-name">Gemini 2.0</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+            </svg>
+            <div class="model-list">
+                <div class="model-option active">
+                    <span class="model-dot"></span>
+                    <span>Gemini 2.0</span>
+                </div>
+                <div class="model-option">
+                    <span class="model-dot"></span>
+                    <span>GPT 4.0</span>
+                </div>
+            </div>
+        </div>
+        <button class="submit-btn">
+        <p>code</p>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="editors-container">
+        <div class="editor-box">
+            <div class="editor-header">
+                <div class="browser-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <div class="code-actions">
+                    <button class="code-btn" id="downloadBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <path d="M7 10l5 5 5-5"/>
+                            <path d="M12 15V3"/>
+                        </svg>
+                        Download
+                    </button>
+                </div>
+            </div>
+            <div class="editor-content">
+                <pre class="code-editor-content" id="codeEditorContent">
+                    <span class="typing-cursor"></span>
+                </pre>
+            </div>
+        </div>
+        <div class="editor-box">
+            <div class="editor-header preview-header">
+                <div class="browser-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <button class="refresh-btn" id="refreshPreview">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+            <div class="editor-content preview">
+                <iframe id="preview"></iframe>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        <div class="footer-credit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Designed by <a href="https://llama.meta.com/" target="_blank" class="footer-link">Llama</a>
+            <span class="footer-divider"></span>
+            Developed by <a href="https://github.com/yourusername" target="_blank" class="footer-link">Rahul</a>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getDatabase, ref, push } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js';
+
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxBHHdMjkPEvjnKn__9a2VR53prsWl-yY",
+            authDomain: "crazy-boys-b25e3.firebaseapp.com",
+            databaseURL: "https://crazy-boys-b25e3-default-rtdb.firebaseio.com",
+            projectId: "crazy-boys-b25e3",
+            storageBucket: "crazy-boys-b25e3.firebasestorage.app",
+            messagingSenderId: "728737120267",
+            appId: "1:728737120267:web:e21b3ca63324a917c8870e",
+            measurementId: "G-3KW6TM2QM5"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Add debug logging
+        console.log('Firebase initialized');
+
+        // Test Firebase connection
+        const testRef = ref(db, 'test');
+        push(testRef, {
+            test: 'Firebase connection test',
+            timestamp: Date.now()
+        })
+        .then(() => console.log('Firebase connection successful'))
+        .catch(error => console.error('Firebase connection error:', error));
+
+        const GEMINI_API_KEY = 'AIzaSyCzZhllerUJnRhHg4KZRQNLk1PCLWfnRdo';
+        const promptInput = document.getElementById('promptInput');
+        const submitButton = document.querySelector('.submit-btn');
+        const codeEditorContent = document.getElementById('codeEditorContent');
+        const preview = document.getElementById('preview');
+
+        // Function to handle typing animation with syntax highlighting
+        async function typeCode(text, speed = 50) {
+            const cursor = document.querySelector('.typing-cursor');
+            let currentText = '';
+            
+            // Function to highlight code
+            function highlightCode(code) {
+                return code
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    // Comments (must come first)
+                    .replace(/(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g, '<span style="color: #6a9955">$1</span>')
+                    // HTML tags
+                    .replace(/(&lt;\/?[a-zA-Z0-9-]+)(\s|&gt;)/g, '<span style="color: #569cd6">$1</span>$2')
+                    // HTML attributes
+                    .replace(/(\s+[a-zA-Z-]+)=/g, '<span style="color: #9cdcfe">$1</span>=')
+                    // Strings
+                    .replace(/"([^"]*)"/g, '<span style="color: #ce9178">"$1"</span>')
+                    // Keywords
+                    .replace(/\b(function|return|const|let|var|if|else|while|for|new|class)\b/g, 
+                           '<span style="color: #c586c0">$1</span>')
+                    // Numbers
+                    .replace(/\b(\d+)\b/g, '<span style="color: #b5cea8">$1</span>');
+            }
+
+            // Clear existing content but keep cursor
+            codeEditorContent.innerHTML = '';
+            codeEditorContent.appendChild(cursor);
+
+            // Type each character
+            for (let i = 0; i < text.length; i++) {
+                currentText += text[i];
+                const highlighted = highlightCode(currentText);
+                codeEditorContent.innerHTML = highlighted;
+                codeEditorContent.appendChild(cursor);
+                codeEditorContent.scrollTop = codeEditorContent.scrollHeight;
+                await new Promise(resolve => setTimeout(resolve, speed));
+            }
+        }
+
+        async function handleSubmit() {
+            const prompt = promptInput.value;
+            if (!prompt) return;
+
+            submitButton.disabled = true;
+            submitButton.classList.add('loading');
+
+            try {
+                // Show initial typing animation
+                await typeCode(`// Generating your ${prompt}...\n// Please wait while I create your application...`);
+
+                // Show preview loading animation
+                preview.srcdoc = `
+                    <div class="preview-animation">
+                        <style>
+                            .preview-animation {
+                                background: #1a1a2e;
+                                color: #e2e8f0;
+                                height: 100vh;
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                justify-content: center;
+                                font-family: system-ui, -apple-system, sans-serif;
+                            }
+                            .preview-text {
+                                font-size: 24px;
+                                font-weight: 500;
+                                opacity: 0;
+                                transform: translateY(20px);
+                                animation: fadeInUp 0.5s forwards;
+                            }
+                            .preview-loader {
+                                margin-top: 20px;
+                                width: 200px;
+                                height: 4px;
+                                background: rgba(65, 105, 225, 0.2);
+                                border-radius: 4px;
+                                overflow: hidden;
+                            }
+                            .preview-loader::after {
+                                content: '';
+                                display: block;
+                                width: 40%;
+                                height: 100%;
+                                background: #4169E1;
+                                animation: loading 1.5s infinite;
+                            }
+                            @keyframes fadeInUp {
+                                to {
+                                    opacity: 1;
+                                    transform: translateY(0);
+                                }
+                            }
+                            @keyframes loading {
+                                0% { transform: translateX(-100%); }
+                                100% { transform: translateX(250%); }
+                            }
+                        </style>
+                        <div class="preview-text">Generating: ${prompt}</div>
+                        <div class="preview-loader"></div>
+                    </div>
+                `;
+
+                // Make API request
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: `Create a complete, self-contained HTML file for: ${prompt}
+
+Requirements:
+- Use modern HTML, CSS, and JavaScript
+- Make it responsive and interactive
+- Include all styling within <style> tags
+- Include all JavaScript within <script> tags
+- Add hover effects and animations
+- Make it visually appealing
+- Handle user interactions properly
+
+Return ONLY the complete HTML code without any explanation.`
+                                }]
+                            }]
+                        })
+                    }
+                );
+
+                const data = await response.json();
+                const generatedCode = data.candidates[0].content.parts[0].text;
+
+                // Add these lines to clean up the code before displaying it
+                const cleanedCode = generatedCode.replace(/^```html\n/, '').replace(/\n```$/, '');
+
+                // Type generated code faster
+                await typeCode(cleanedCode, 2);
+
+                // Update preview with fade effect
+                preview.srcdoc = cleanedCode;
+
+            } catch (error) {
+                console.error('Error:', error);
+                await typeCode('// An error occurred while generating the code.\n// Please try again.');
+                
+                preview.srcdoc = `
+                    <div style="
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        color: #ef4444;
+                        font-family: system-ui;
+                        background: #1a1a2e;
+                    ">
+                        <div style="text-align: center;">
+                            <h3>Error occurred</h3>
+                            <p>Please try again</p>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                submitButton.disabled = false;
+                submitButton.classList.remove('loading');
+            }
+        }
+
+        // Event listeners
+        submitButton.addEventListener('click', handleSubmit);
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleSubmit();
+            }
+        });
+
+        // Initialize with empty editor
+        typeCode('// Ready to generate code...\n// Type your prompt and press Enter or click the Code button.');
+
+        // Download button functionality
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const codeContainer = document.querySelector('.code-editor-content');
+            if (!codeContainer) return;
+
+            try {
+                // Get the text content without HTML tags
+                const code = codeContainer.innerText || codeContainer.textContent;
+                
+                // Create a new ZIP file
+                const zip = new JSZip();
+                
+                // Add the main HTML file
+                zip.file("index.html", code);
+                
+                // Add a README file
+                zip.file("README.md", `# Generated Code
+This code was generated using AI Code Generator.
+
+## How to use
+1. Extract the zip file
+2. Open index.html in your browser
+3. Enjoy!`);
+                
+                // Generate the zip file
+                const content = await zip.generateAsync({
+                    type: "blob",
+                    compression: "DEFLATE",
+                    compressionOptions: {
+                        level: 9
+                    }
+                });
+                
+                // Create and trigger download
+                const url = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'generated-code.zip';
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 0);
+                
+                // Show success state
+                const downloadBtn = document.getElementById('downloadBtn');
+                const originalContent = downloadBtn.innerHTML;
+                downloadBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+                        <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                    Downloaded!
+                `;
+                downloadBtn.style.background = '#22c55e';
+                downloadBtn.style.color = 'white';
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    downloadBtn.innerHTML = originalContent;
+                    downloadBtn.style.background = '#f3f4f5';
+                    downloadBtn.style.color = 'rgb(59, 32, 32)';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to download:', err);
+                alert('Failed to create zip file. Please try again.');
+            }
+        });
+
+        // Add this code after your existing event listeners
+        const modelSelector = document.getElementById('modelSelector');
+        const modelList = document.querySelector('.model-list');
+
+        // Toggle model list
+        modelSelector.addEventListener('click', () => {
+            modelList.classList.toggle('show');
+        });
+
+        // Close model list when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!modelSelector.contains(e.target)) {
+                modelList.classList.remove('show');
+            }
+        });
+
+        // Handle model selection
+        const modelOptions = document.querySelectorAll('.model-option');
+        modelOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const modelName = option.querySelector('span:last-child').textContent;
+                const currentModelName = document.querySelector('.model-selector .model-name');
+                currentModelName.textContent = modelName;
+                
+                // Update active state
+                modelOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                
+                // Close dropdown
+                modelList.classList.remove('show');
+            });
+        });
+
+        // Add this code after your other event listeners
+        document.getElementById('refreshPreview').addEventListener('click', () => {
+            const preview = document.getElementById('preview');
+            const currentContent = preview.srcdoc;
+            
+            // Show loading animation
+            preview.srcdoc = `
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    background: #1a1a2e;
+                    color: #e2e8f0;
+                    font-family: system-ui;
+                ">
+                    <div style="text-align: center;">
+                        <div>Refreshing preview...</div>
+                        <div style="
+                            margin-top: 20px;
+                            width: 200px;
+                            height: 4px;
+                            background: rgba(65, 105, 225, 0.2);
+                            border-radius: 4px;
+                            overflow: hidden;
+                        ">
+                            <div style="
+                                width: 40%;
+                                height: 100%;
+                                background: #4169E1;
+                                animation: loading 1.5s infinite;
+                            "></div>
+                        </div>
+                    </div>
+                </div>
+                <style>
+                    @keyframes loading {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(250%); }
+                    }
+                </style>
+            `;
+
+            // Refresh the preview after a short delay
+            setTimeout(() => {
+                preview.srcdoc = currentContent;
+            }, 500);
+
+            // Add visual feedback to the refresh button
+            const refreshBtn = document.getElementById('refreshPreview');
+            refreshBtn.style.transform = 'rotate(180deg)';
+            refreshBtn.style.transition = 'transform 0.5s ease';
+            
+            setTimeout(() => {
+                refreshBtn.style.transform = 'rotate(0deg)';
+            }, 500);
+        });
+    </script>
+</body>
+</html>
