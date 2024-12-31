@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
-import firebase from 'vite-plugin-firebase'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [
-    firebase({
-      projectId: 'crazy-boys-b25e3'
-    })
-  ]
+  plugins: [react()],
+  build: {
+    outDir: 'dist',
+    sourcemap: true
+  }
 }) 
